@@ -14,6 +14,7 @@ import warnings
 from itertools import islice
 import logging
 from pySankey.sankey import sankey
+from gprofiler import GProfiler
 
 class microTCDS(InitScrapper):
     """_summary_
@@ -30,6 +31,7 @@ class microTCDS(InitScrapper):
         self.searchable_dataframe = search_dataframe
         self._threshold = threshold
         self.data = None
+        self.gprofiler = GProfiler(return_dataframe=True)
         
     def get_genes(self, gene_list):
         search_gene = " ".join(gene_list)
@@ -91,6 +93,11 @@ class microTCDS(InitScrapper):
                 raise ConnectionError("NO valid connection genes cannot be inserted into the Input Box")
     
     def remove_children(self):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
         if len(self.driver.find_elements(By.CLASS_NAME, "suggestions")) > 0:
             print("We found suggestions by microCDS, please check manually")
             get_element = self.driver.find_element(By.CLASS_NAME, "suggestions")
@@ -114,7 +121,7 @@ class microTCDS(InitScrapper):
             genes_search = self.get_genes(list(i))
             self.insert_search(genes_search)
             self.analysis = 1
-            self.set_threshold(0.9)
+            self.set_threshold(self._threshold)
             pred_table = self.load_prediction_table()
             prediction_table = pd.concat([prediction_table, pred_table])
             input_area = self.driver.find_element(By.NAME, "keywords")
@@ -184,6 +191,11 @@ class microTCDS(InitScrapper):
         return merged_data, grouped_table
     
     def plot_sankey_mirna_overlap(self, sankey_dataframe):
+        """_summary_
+
+        Args:
+            sankey_dataframe (_type_): _description_
+        """
         
         sankey(left=sankey_dataframe['Query'],
                right=sankey_dataframe['Mirna Name'],
@@ -191,6 +203,9 @@ class microTCDS(InitScrapper):
                aspect=10,
                fontsize=10
                )
+        
+    def get_gprofiles(self, data):
+        print("needs to be implemetned")
         
         
     def chunk(self, it, size):

@@ -13,6 +13,10 @@ from selenium.common import exceptions
 import warnings
 import logging
 import sys
+from gprofiler import GProfiler
+from rnaFetch.FetchBioMart import GeneBiomart
+import plotly.express as px
+import numpy as np
 
 
 class mirTFetch(InitScrapper):
@@ -21,7 +25,7 @@ class mirTFetch(InitScrapper):
 
     """
 
-    def __init__(self, browser="Chrome", level  = 2,  species: str = "Homo sapiens (Ensembl v84)") -> None:
+    def __init__(self, browser="Chrome", level  = 2,  species: str = "Homo sapiens (Ensembl v84)", gprofiling = True) -> None:
         super().__init__(browser)
 
         self.url = "https://mrmicrot.imsi.athenarc.gr/?r=mrmicrot/index"
@@ -35,6 +39,9 @@ class mirTFetch(InitScrapper):
         self.logging = logging.getLogger()
         handler = logging.StreamHandler(sys.stdout)   
         self.logging.addHandler(handler)  
+        self.gp = GProfiler(return_dataframe= True)
+        self.gprofiles = None
+        self.gprofile_query = gprofiling
         #self.initialize_logger(level = level)
     
     def initialize_logger(self, level):
@@ -162,10 +169,26 @@ class mirTFetch(InitScrapper):
 
             self.clear_input()
         
+        
+        # Here we incorporate the Biomart notifications
+        biomart_data = GeneBiomart(complete_table["Transcript_ID"].unique().tolist())
+        
+        
+        query_table = biomart_data.query_data()
+        prediction_table = biomart_data.merge_annotation(complete_table, query_table)
+        
         self.utr_table = utr_full.copy()
-        self.prediction_data = complete_table.copy()
+        self.prediction_data = prediction_table.copy()
+        
+        
+        if self.gprofile_query:
+            self.get_gprofiles(prediction_table, nucleotide_dictionary)
+            
+            
         self.logging.info("Prediction and UTR table successfully generated")
-        return complete_table
+        
+        
+        return prediction_table
 
     def insert_search(self, list_of_vales, keys):
         """Here the Search Terms will be inserted into the Text_Area
@@ -283,6 +306,50 @@ class mirTFetch(InitScrapper):
         else:
             self.logging.error(f"Here are the nucleotides you provided: {nucleotides_set}, please check, not supported by the Server!")
          
+
+    def get_gprofiles(self, prediction_table, nucleotides):
+        """Function to retrieve gprofiling ontology results
+
+        Args:
+            prediction_table (_type_): _description_
+            nucleotides (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        print("Generate GProfiles per Key")
+        species_dictionary = {"Homo sapiens (Ensembl v84)": "hsapiens", 
+                              "Mus musculus (Ensembl v84)": "mmusculus",
+                              "D.melanogaster (Ensembl v84)": "dmelanogaster"}
+    
+        species = species_dictionary.get(self.species)
+        gprofile = pd.DataFrame()
+        for keys in nucleotides: 
+            sub_pred = prediction_table[prediction_table["Query"] == keys]
+            gprofile_return = self.gp.profile(organism = str(species),query = sub_pred["Gene_ID"].astype(str).tolist())
+            
+            if gprofile_return.empty:
+                print(f"No enrichments found for {keys}")
+            else:
+                gprofile_return["Query"] = gprofile_return.shape[0] * [keys]
+                gprofile = pd.concat([gprofile, gprofile_return],axis = 0)
+        
+        self.gprofiles = gprofile.copy()
+
+
+    def get_treemap(self, gprofiler_data):
+        """_summary_
+
+        Args:
+            gprofiler_data (_type_): _description_
+        """
+        gprofiler_data["log10p"] = gprofiler_data["p_value"].apply(lambda x: -(np.log10(x)))
+        gprof_sliced = pd.DataFrame(gprofiler_data.groupby(["Query", "source", "name"])["log10p"].sum())
+        gprof_sliced.columns = ["log10p"]
+        gprof_sliced = pd.DataFrame(gprof_sliced.groupby(level = 0)["log10p"].nlargest(10).reset_index(level = 0, drop = True)).reset_index()
+        fig = px.treemap(gprof_sliced, path=["Query","source","name"], values='log10p')
+        fig.update_layout(margin = dict(t=50, l=25, r=25, b=25))
+        fig.show()
 
     def clear_input(self):
         """_summary_

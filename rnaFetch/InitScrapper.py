@@ -4,7 +4,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class InitScrapper():
-    def __init__(self, browser, headless = None):
+    def __init__(self, browser, headless = True):
         self.browser = browser
         self.driver = None
         self.options = Options()
@@ -22,7 +22,7 @@ class InitScrapper():
             self.edge_init()
 
     def chrome_init(self):
-        self.driver = webdriver.Chrome(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(ChromeDriverManager().install(), options = self.options)
 
     def firefox_init(self):
         self.driver = webdriver.Firefox()
