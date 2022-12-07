@@ -12,6 +12,8 @@ import pandas as pd
 from selenium.common import exceptions
 import warnings
 from itertools import islice
+import logging
+from pySankey.sankey import sankey
 
 class microTCDS(InitScrapper):
     """_summary_
@@ -161,7 +163,7 @@ class microTCDS(InitScrapper):
         return table
 
         
-    def get_mt_cds_overlap(self, microT_data, micro_CDS_data, groupby = "Sequence"):
+    def get_mt_cds_overlap(self, microT_data, micro_CDS_data, groupby = "Sequence", number = 3):
         """_summary_
 
         Args:
@@ -173,9 +175,24 @@ class microTCDS(InitScrapper):
             _type_: _description_
         """
         merged_data = pd.merge(micro_CDS_data, microT_data, how = "left", right_on = "Gene_ID", left_on = "Gene_ID")
-        grouped_table = merged_data.groupby(["Query","Sequence", "Mirna Name"])["Mirna Name"].count().nlargest(10)
+        grouped_table = pd.DataFrame(merged_data.groupby(["Query", "Mirna Name"])["Mirna Name"].count())
+        grouped_table.columns = ["count"]
+        grouped_table = pd.DataFrame(grouped_table.groupby(level = 0)["count"].nlargest(number)).reset_index(level = 1, drop = True)
+        grouped_table = grouped_table.reset_index()
+        grouped_table["count"] = grouped_table["count"]/20
+        
         return merged_data, grouped_table
     
+    def plot_sankey_mirna_overlap(self, sankey_dataframe):
+        
+        sankey(left=sankey_dataframe['Query'],
+               right=sankey_dataframe['Mirna Name'],
+               rightWeight=sankey_dataframe['count'],
+               aspect=10,
+               fontsize=10
+               )
+        
+        
     def chunk(self, it, size):
         """List will be chunked into equal size for request Since request size is only 1000
 

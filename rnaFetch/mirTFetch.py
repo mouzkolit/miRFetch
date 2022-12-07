@@ -11,6 +11,9 @@ from rnaFetch.InitScrapper import InitScrapper
 import pandas as pd
 from selenium.common import exceptions
 import warnings
+import logging
+import sys
+
 
 class mirTFetch(InitScrapper):
     """
@@ -18,7 +21,7 @@ class mirTFetch(InitScrapper):
 
     """
 
-    def __init__(self, browser="Chrome", species: str = "Homo sapiens (Ensembl v84)") -> None:
+    def __init__(self, browser="Chrome", level  = 2,  species: str = "Homo sapiens (Ensembl v84)") -> None:
         super().__init__(browser)
 
         self.url = "https://mrmicrot.imsi.athenarc.gr/?r=mrmicrot/index"
@@ -29,7 +32,25 @@ class mirTFetch(InitScrapper):
         self.species = species
         self._prediction_data = None
         self.utr_table = None
+        self.logging = logging.getLogger()
+        handler = logging.StreamHandler(sys.stdout)   
+        self.logging.addHandler(handler)  
+        #self.initialize_logger(level = level)
+    
+    def initialize_logger(self, level):
+        """Initialize the Logging Structure
 
+        Args:
+            level (int): Number between 1-3 to select the Logging Level (Default = 2)
+        """
+        if level == 1:
+            self.logging.set_level(logging.DEBUG)
+        if level == 2:
+            self.logging.set_level(logging.INFO)
+        if level == 3:
+            self.logging.set_level(logging.ERROR)
+    
+            
     def get_species_options(self):
         """Retrieve the Species that are availabe with the algorithm
 
@@ -41,7 +62,9 @@ class mirTFetch(InitScrapper):
         all_species = species.find_elements(By.XPATH, "//option")
         for option in all_species:
             all_species_selected.append(option.text)
+        self.logging.info(f"Species that can be selected: {all_species_selected}")
         return all_species_selected
+
 
     def select_species(self, species):
         """_summary_
@@ -51,8 +74,8 @@ class mirTFetch(InitScrapper):
         """
         selected_species = Select(self.driver.find_element(By.NAME, "species"))
         selected_species.select_by_visible_text(species)
-        print("Your species has been selected! You can now run the Pipeline with the following command \n self.run_miRNA_analysis(your_input)")
-        time.sleep(0.8)
+        self.logging.info(f"Your species has been selected! You can now run the Pipeline with the following command \n self.run_miRNA_analysis(your_input)")
+        time.sleep(0.1)
 
     @property
     def threshold(self):
@@ -66,8 +89,8 @@ class mirTFetch(InitScrapper):
             tres (float): Treshold
         """
         self._threshold = tres
-        print(f"The current threshold is: {self._threshold}")
-
+        self.logging.info(f"The current threshold is: {self._threshold}")
+    
     @property
     def prediction_data(self):
         """Get prediction data from the analysis
@@ -75,9 +98,9 @@ class mirTFetch(InitScrapper):
         Returns:
             pd.DataFrame: Prediction Data
         """
-        print("Retrieving the Prediction Data")
+        self.logging.info("Retrieving Prediction Data")
         if self._prediction_data.empty:
-            print("No data were retrieved!")
+            self.logging.warning("No data were retrieved, Check Connection")
         else:
             return self._prediction_data
 
@@ -102,10 +125,11 @@ class mirTFetch(InitScrapper):
             _type_: _description_
         """
         complete_table = pd.DataFrame()
-        utr_full = pd.DataFrame()
-        self.clear_input()
+        utr_full = pd.DataFrame() 
+        
+        self.clear_input() # clear the Input Area
         for keys in nucleotide_dictionary:
-            print(f"Started Submitting for the following key: {keys}")
+            self.logging.info(f"Started Job for the following key: {keys}")
             all_checks = []
             list_of_vales = nucleotide_dictionary[keys]
             analysis_started = self.insert_search(list_of_vales, keys)
@@ -119,10 +143,10 @@ class mirTFetch(InitScrapper):
                     By.XPATH, ".//div[@class='tarcloud_prediction']")
 
                 for elements in all_children_by_xpath:
-                    result = self.check_progress(elements)
+                    result = self.check_progress(elements, 0)
                     all_checks.append(result)
                     
-                print("All Data is queried successfully, Job completed")
+                self.logging.info(f"All Data is queried successfully, Job completed")
                 if all(all_checks) == True:
                     table, utr_table = self.load_prediction_table(
                         all_children_by_xpath)
@@ -130,16 +154,18 @@ class mirTFetch(InitScrapper):
                     utr_table["Query"] = utr_table.shape[0] * [keys]
                     complete_table = pd.concat([complete_table, table], axis=0)
                     utr_full = pd.concat([utr_full, utr_table], axis=0)
-                    print("You can retrieve your table using self.prediction_data")
+                    
 
             else:
-                print("Current Job was not succesfull")
+                self.logging.error("Current Job was not successfuly, maybe open in header mode to see the browser")
                 return None
 
             self.clear_input()
-
-        self.utr_table = utr_full
-        self.prediction_data = complete_table
+        
+        self.utr_table = utr_full.copy()
+        self.prediction_data = complete_table.copy()
+        self.logging.info("Prediction and UTR table successfully generated")
+        return complete_table
 
     def insert_search(self, list_of_vales, keys):
         """Here the Search Terms will be inserted into the Text_Area
@@ -162,10 +188,10 @@ class mirTFetch(InitScrapper):
                     Keys.ENTER).key_up(Keys.SHIFT).key_up(Keys.ENTER).perform()
 
             else:
-                print(
-                    "You didn't provide Nucleotides Sequence; should only contain (A,T,G,C) letters")
+                self.logger.error("You didn't provide Nucleotides Sequence; should only contain (A,T,G,C) letters")
                 return None
-        print(f"Succesfully checked nucleotides for submission of key : {keys}")
+            
+        self.logging.info(f"Succesfully checked nucleotides for submission of key : {keys}")
         return True
 
     def load_prediction_table(self, element_to_check):
@@ -190,6 +216,7 @@ class mirTFetch(InitScrapper):
             table = table[table["Score"] >= self.threshold]
             final_table = pd.concat([final_table, table], axis=0)
             utr_table_full = pd.concat([utr_table_full, utr_table], axis=0)
+        
         return final_table, utr_table_full
 
     def get_utrs(self, download_link):
@@ -218,7 +245,7 @@ class mirTFetch(InitScrapper):
             gene_list, columns=["UTR", "Transcript Position", "Score", "Transcript_ID"])
         return list_of_utr_counts, utr_dataframe
 
-    def check_progress(self, element_to_check):
+    def check_progress(self, element_to_check, count):
         """Checks if the Job is still running or if all tables are already provided
 
         Args:
@@ -231,11 +258,16 @@ class mirTFetch(InitScrapper):
         try:
             element = WebDriverWait(element_to_check, 100).until(
                 EC.presence_of_element_located((By.ID, "mrmicrot_result_download_button")))
+            
         except Exception as e:
-            print(f"The following exception occured {e}")
-            print("Check progress will be rerun!")
-            self.check_progress(element_to_check)
-
+            count += 1
+            self.logger.info("Process is still running", count)
+            if count <= 4:
+                self.check_progress(element_to_check)
+            else:
+                self.logger.error("Job is taking to long, check connection and rerun in with headed Browser")
+                return None
+            
         finally:
             return True
 
@@ -249,11 +281,11 @@ class mirTFetch(InitScrapper):
         if nucleotides_set.issubset({"A", "T", "C", "G"}):
             return True
         else:
-            print(
-                f"Here are the nucleotides you provided: {nucleotides_set}, please check, not supported by the Server!")
+            self.logging.error(f"Here are the nucleotides you provided: {nucleotides_set}, please check, not supported by the Server!")
+         
 
     def clear_input(self):
         """_summary_
         """
         self.input_area.clear()
-        print("Input Area of Server cleared after Job")
+        self.logging.info("Cleared Input")
