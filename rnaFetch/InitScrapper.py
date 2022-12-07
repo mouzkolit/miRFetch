@@ -8,7 +8,6 @@ class InitScrapper():
         self.browser = browser
         self.driver = None
         self.options = Options()
-        self.options.headless = True
         
         if headless:
             self.headless_state()

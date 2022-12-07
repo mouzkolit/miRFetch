@@ -15,6 +15,8 @@ from itertools import islice
 import logging
 from pySankey.sankey import sankey
 from gprofiler import GProfiler
+import matplotlib.pyplot as plt
+
 
 class microTCDS(InitScrapper):
     """_summary_
@@ -23,8 +25,8 @@ class microTCDS(InitScrapper):
         InitScrapper (_type_): _description_
     """
     
-    def __init__(self, search_dataframe, threshold = 0.9,  browser = "Chrome"):
-        super().__init__(browser)
+    def __init__(self, search_dataframe, threshold = 0.9,  browser = "Chrome", headless = True):
+        super().__init__(browser, headless)
         self.url = "https://dianalab.e-ce.uth.gr/html/dianauniverse/index.php?r=microT_CDS"
         self.driver.get(self.url)
         self.analysis = None
@@ -196,13 +198,15 @@ class microTCDS(InitScrapper):
         Args:
             sankey_dataframe (_type_): _description_
         """
-        
-        sankey(left=sankey_dataframe['Query'],
+        fig, ax = plt.subplots(figsize = 8, 14)
+        plot = sankey(left=sankey_dataframe['Query'],
                right=sankey_dataframe['Mirna Name'],
                rightWeight=sankey_dataframe['count'],
+               leftWeight = sankey_dataframe["count"],
                aspect=10,
                fontsize=10
                )
+        return plot
         
     def get_gprofiles(self, data):
         print("needs to be implemetned")

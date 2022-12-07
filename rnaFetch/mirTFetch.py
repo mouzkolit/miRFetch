@@ -25,8 +25,8 @@ class mirTFetch(InitScrapper):
 
     """
 
-    def __init__(self, browser="Chrome", level  = 2,  species: str = "Homo sapiens (Ensembl v84)", gprofiling = True) -> None:
-        super().__init__(browser)
+    def __init__(self, browser="Chrome", level  = 2,  species: str = "Homo sapiens (Ensembl v84)", gprofiling = True, headless = True) -> None:
+        super().__init__(browser, headless)
 
         self.url = "https://mrmicrot.imsi.athenarc.gr/?r=mrmicrot/index"
         self._threshold = 0.9
@@ -143,7 +143,7 @@ class mirTFetch(InitScrapper):
 
             if analysis_started:
                 self.input_submit.click()
-                time.sleep(3)
+                time.sleep(1)
                 get_element = self.driver.find_element(
                     By.XPATH, "//div[@id='predictionResults']")
                 all_children_by_xpath = get_element.find_elements(
@@ -155,13 +155,19 @@ class mirTFetch(InitScrapper):
                     
                 self.logging.info(f"All Data is queried successfully, Job completed")
                 if all(all_checks) == True:
-                    table, utr_table = self.load_prediction_table(
+                    # tables is a tuple of prediction table and utr table
+                    tables = self.load_prediction_table(
                         all_children_by_xpath)
-                    table["Query"] = table.shape[0] * [keys]
-                    utr_table["Query"] = utr_table.shape[0] * [keys]
-                    complete_table = pd.concat([complete_table, table], axis=0)
-                    utr_full = pd.concat([utr_full, utr_table], axis=0)
                     
+                    if tables:
+                        tables[0]["Query"] = tables[0].shape[0] * [keys]
+                        tables[1]["Query"] = tables[1].shape[0] * [keys]
+                        complete_table = pd.concat([complete_table, tables[0]], axis=0)
+                        utr_full = pd.concat([utr_full, tables[1]], axis=0)
+                    else:
+                        self.logging.warning(f"No Table was generated for the key: {keys}")
+                        self.clear_input()
+                        continue
 
             else:
                 self.logging.error("Current Job was not successfuly, maybe open in header mode to see the browser")
@@ -179,8 +185,6 @@ class mirTFetch(InitScrapper):
         
         self.utr_table = utr_full.copy()
         self.prediction_data = prediction_table.copy()
-        
-        
         if self.gprofile_query:
             self.get_gprofiles(prediction_table, nucleotide_dictionary)
             
@@ -229,18 +233,23 @@ class mirTFetch(InitScrapper):
         final_table = pd.DataFrame()
         utr_table_full = pd.DataFrame()
         for i in element_to_check:
-            download = i.find_element(By.ID, "mrmicrot_result_download_button")
-            download_link = download.get_attribute("href")
-            table = pd.read_csv(download_link, delimiter="|", header=None)
-            utrs, utr_table = self.get_utrs(download_link)
-            table = table.dropna()
-            table.columns = ["Sequence", "Transcript_ID", "Score"]
-            table["utrs"] = utrs
-            table = table[table["Score"] >= self.threshold]
-            final_table = pd.concat([final_table, table], axis=0)
-            utr_table_full = pd.concat([utr_table_full, utr_table], axis=0)
+            
+            try:
+                download = i.find_element(By.ID, "mrmicrot_result_download_button")
+                download_link = download.get_attribute("href")
+                table = pd.read_csv(download_link, delimiter="|", header=None)
+                utrs, utr_table = self.get_utrs(download_link)
+                table = table.dropna()
+                table.columns = ["Sequence", "Transcript_ID", "Score"]
+                table["utrs"] = utrs
+                table = table[table["Score"] >= self.threshold]
+                final_table = pd.concat([final_table, table], axis=0)
+                utr_table_full = pd.concat([utr_table_full, utr_table], axis=0)
+            except Exception as e:
+                print(e)
+                return None
         
-        return final_table, utr_table_full
+        return (final_table, utr_table_full)
 
     def get_utrs(self, download_link):
         data = pd.read_csv(download_link, header=None)
@@ -279,14 +288,14 @@ class mirTFetch(InitScrapper):
         """
         print("Job is running")
         try:
-            element = WebDriverWait(element_to_check, 100).until(
+            element = WebDriverWait(element_to_check, 500, poll_frequency= 1).until(
                 EC.presence_of_element_located((By.ID, "mrmicrot_result_download_button")))
             
         except Exception as e:
             count += 1
-            self.logger.info("Process is still running", count)
-            if count <= 4:
-                self.check_progress(element_to_check)
+            self.logger.info("Process is still running")
+            if count <= 8:
+                self.check_progress(element_to_check,count)
             else:
                 self.logger.error("Job is taking to long, check connection and rerun in with headed Browser")
                 return None
