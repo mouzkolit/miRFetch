@@ -1,7 +1,7 @@
 <h1> miRFetch Package to provide easy access to the DIANA microT and microCDS Webserver </h1>
 <p> This package allows to submit RNA sequences provided from tRNA fragments ect and determine the Target Spaces using Selenium WebScraping and
 Automatisation using an easy accessible API</p>
-
+<p> Data will be fetched from https://mrmicrot.imsi.athenarc.gr/?r=mrmicrot/index </p>
 
 <h2> miRT Fetching Segment: </h2>
 
@@ -11,9 +11,8 @@ tRNA fragments</p>
 
 
 ```
-from rnaFetch.mirTFetch import mirTFetch \n
-from rnaFetch.FetchBioMart import GeneBiomart\n
-from rnaFetch.mirCDSFetch import microTCDS\n
+from rnaFetch.mirTFetch import mirTFetch 
+from rnaFetch.mirCDSFetch import microTCDS
 
 RNA = {"GlyCCC": ["GCATTGGTGGTTCAGTGGTAGAATTCTC", 
                   "GCATTGGTGGTTCAGTGGTAGAATTCTCGCC", 
@@ -36,36 +35,24 @@ fetcht = mirTFetch("Chrome")
 ```
 
 <p> We can then set the threshold to consider a target; Can also be added manually via pandas when table is generated
-And then we can run the Pipeline to let the miRWebserver determine the Target Spaces </p>
+And then we can run the Pipeline to let the miRWebserver determine the Target Spaces, which also includes the BioMart
+Mapping using multithreading to convert Ensembl Transcript ID to Ensembl Gene ID and the external gene name, 
+which can be better used for downstream analysis like GProfiler Analysis or Diana microT CDS analysis</p>
 
 ```
 fetcht.threshold = 0.95
 # this will return a table or save a table in self.prediction_data
 # In addition UTR sequence Table will be provided in self.utr_table
 # data table will be also returned
-data = fetcht.run_miRNA_analysis(dictionary)
-```
-
-<h2> BioMart Segment: </h2>
-<p> Since the Table generate only contains Transcript IDs we also ofer direct conversion using the BioMart ID via multithreading
-</p>
-<p> This will generate a Table with the ensembl_gene_id and the external_gene_name which can be used for further analysis and furthermore we merge the 
-prediction table with the biomart table for direct interaction and downstream analysis </p>
-
-```
-# Provide the column of the Table harboring the Transcript ID
-# Currently only Transcript ID is supported
-biomart_data = GeneBiomart(fetcht.prediction_data["Transcript_ID"].unique().tolist())
-return_table = biomart_data.query_data()
-final_table = biomart_data.merge_annotation(fetcht.prediction_data, return_table)
-
+final_table = fetcht.run_miRNA_analysis(dictionary)
 ```
 
 <h2> Get RNA miRNA overlap </h2>
 
 <p> We also provided overlapping target spaces between miRNAs and queried sequences using the mirCDSFetch module </p>
-<p> Input the final_table generate after biomart annotation into the following code snippet
-The ouptut is a table of miRNA:sequence prediction partner shared in the grouped table
+<p> Input the final_table generate after biomart annotation into the following code snippet.
+The ouptut is a table of miRNA:sequence prediction partner shared in the grouped table. We further allow for specific visualizations of target
+space overlaps between the queried RNA and miRNAs using Sankey Plots
 </p>
 
 ```
