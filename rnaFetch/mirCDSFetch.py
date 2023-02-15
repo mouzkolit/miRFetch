@@ -26,12 +26,26 @@ class microTCDS(InitScrapper):
     """
     
     def __init__(self, search_dataframe, threshold = 0.9,  browser = "Chrome", headless = True):
+        """_summary_
+
+        Args:
+            search_dataframe: can be list, dict, dataframe, set holoding the unique gene identifiers
+            threshold (float, optional): _description_. Defaults to 0.9. should hold the threshold to select predictions
+            browser (str, optional): _description_. Defaults to "Chrome". Determines which browser for fetching will be used, chrome will be downloaded so this is default
+            headless (bool, optional): _description_. Defaults to True. Determines if browser is shown or not (headless False)
+
+        Raises:
+            ValueError: _description_
+        """
         super().__init__(browser, headless)
         self.url = "https://dianalab.e-ce.uth.gr/html/dianauniverse/index.php?r=microT_CDS"
         self.driver.get(self.url)
         self.analysis = None
         self.searchable_dataframe = search_dataframe
-        self._threshold = threshold
+        if not isinstance(threshold, float):
+            raise ValueError("You provided the wrong data type as threshold")
+        else:
+            self._threshold = threshold
         self.data = None
         self.gprofiler = GProfiler(return_dataframe=True)
         
@@ -39,8 +53,8 @@ class microTCDS(InitScrapper):
         search_gene = " ".join(gene_list)
         return search_gene
     
-    
-    def get_threshold(self):
+    @property
+    def threshold(self):
         """Getter Function of the setted threshold
 
         Returns:
@@ -50,8 +64,8 @@ class microTCDS(InitScrapper):
         print(f"Threshold is set to {self._threshold}")
         return self._threshold
     
-
-    def set_threshold(self, threshold):
+    @threshold.setter
+    def threshold(self, threshold):
         """Set the threshold to a float between 0-1
 
         Args:
@@ -95,10 +109,10 @@ class microTCDS(InitScrapper):
                 raise ConnectionError("NO valid connection genes cannot be inserted into the Input Box")
     
     def remove_children(self):
-        """_summary_
+        """Here we remove the not found genes using recursion
 
         Returns:
-            _type_: _description_
+            bool: True if alle children were removed
         """
         if len(self.driver.find_elements(By.CLASS_NAME, "suggestions")) > 0:
             print("We found suggestions by microCDS, please check manually")
@@ -114,16 +128,41 @@ class microTCDS(InitScrapper):
             return True
         
          
-    def run_miRNA_analysis(self, threshold = None):
-        """_summary_
+    def run_miRNA_analysis(self,threshold = 0.9, dictkey = "None"):
+        """Start the miRNA analysis using the threshold and the searchable dataframe
+        Args:
+            threshold (float) <- threshold for the analysis between 0-1
+            dictkey (str) <- if input data is of type dict give the list with the genes by the key in the dict
+            
+        returns:
+            prediction_table(pd.DataFrame) <- DataFrame downloaded from microTCDS holding the predictions
         """
         prediction_table = pd.DataFrame()
-        gene_list = self.chunk(self.searchable_dataframe["Gene_ID"].astype(str).unique().tolist(), 200)
+     
+        if not isinstance(dictkey, str):
+            raise ValueError("You provided the wrong data type as dictkey please use a valid key as string")
+        
+        if not isinstance(threshold, float):
+            raise ValueError("You provided wrong data type for threshold please use a float type")
+        
+        if isinstance(self.searchable_dataframe, pd.DataFrame):
+            # This assumes a table that was provided by the biomart output and holds a column with the gene_ids
+            gene_list = self.chunk(self.searchable_dataframe["Gene_ID"].astype(str).unique().tolist(), 200)
+            
+        if isinstance(self.searchable_dataframe, list):
+            print("here we go")
+            gene_list = {str(i) for i in self.searchable_dataframe}
+            gene_list = self.chunk(gene_list, 200)
+            
+        if isinstance(self.searchable_dataframe, dict):
+            gene_list = {str(i) for i in self.searchable_dataframe[dictkey]}
+           
+        # going through the individual chunks 
         for i in gene_list:
             genes_search = self.get_genes(list(i))
             self.insert_search(genes_search)
             self.analysis = 1
-            self.set_threshold(self._threshold)
+            self.threshold = threshold
             pred_table = self.load_prediction_table()
             prediction_table = pd.concat([prediction_table, pred_table])
             input_area = self.driver.find_element(By.NAME, "keywords")
@@ -152,13 +191,14 @@ class microTCDS(InitScrapper):
             return True
             
     def load_prediction_table(self):
-        """_summary_
+        """Download the table from the DIANA search page
 
         Args:
-            element_to_check (_type_): _description_
+            element_to_check (Selenium Element): Check if the element of the download button exists
 
         Returns:
-            _type_: _description_
+            pd.DataFrame: table with the prediction data from the table 
+            
         """       
         print("Download of the Table initialized")
         download = self.driver.find_element(By.ID, "download_results_link")
@@ -173,15 +213,16 @@ class microTCDS(InitScrapper):
 
         
     def get_mt_cds_overlap(self, microT_data, micro_CDS_data, groupby = "Sequence", number = 3):
-        """_summary_
+        """Get the overlap between miRNA target space and queried RNA searches
 
         Args:
-            microT_data (_type_): _description_
-            micro_CDS_data (_type_): _description_
+            microT_data (pd.DataFrame): Data received from the microT_data class
+            micro_CDS_data (pd.DataFrame): Data fetched from the queried genes
             groupby (str, optional): _description_. Defaults to "Sequence".
 
         Returns:
-            _type_: _description_
+            pd.DataFrame: merged_data is the whole merged table
+            pd.DataFrame: grouped_table is the table grouped by Query and Mirna Name
         """
         merged_data = pd.merge(micro_CDS_data, microT_data, how = "left", right_on = "Gene_ID", left_on = "Gene_ID")
         grouped_table = pd.DataFrame(merged_data.groupby(["Query", "Mirna Name"])["Mirna Name"].count())
@@ -193,22 +234,38 @@ class microTCDS(InitScrapper):
         return merged_data, grouped_table
     
     def plot_sankey_mirna_overlap(self, sankey_dataframe):
-        """_summary_
+        """Draw the Sankey Plot
 
         Args:
-            sankey_dataframe (_type_): _description_
+            sankey_dataframe (pd.DataFrame): Dataframe holding the data for the Sankey diagrom
+        returns:
+            fig (plt.Figure) <- holding the sankey plot
         """
-        fig, ax = plt.subplots(figsize = 8, 14)
-        plot = sankey(left=sankey_dataframe['Query'],
+             
+        sankey(left=sankey_dataframe['Query'],
                right=sankey_dataframe['Mirna Name'],
                rightWeight=sankey_dataframe['count'],
                leftWeight = sankey_dataframe["count"],
                aspect=10,
                fontsize=10
                )
-        return plot
+        # Get current figure
+        fig = plt.gcf()
+
+        # Set size in inches
+        fig.set_size_inches(6, 12)
+
+        # Set the color of the background to white
+        fig.set_facecolor("w")
+        
+        return fig
         
     def get_gprofiles(self, data):
+        """_summary_
+
+        Args:
+            data (_type_): _description_
+        """
         print("needs to be implemetned")
         
         

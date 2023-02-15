@@ -11,14 +11,20 @@ import warnings
 
 class GeneBiomart():
 
-    def __init__(self, gene_list) -> None:
+    def __init__(self, gene_list, species = "homo_sapies", symbol = False) -> None:
         self.chunked_list = gene_list
         self.workers = 2 * multiprocessing.cpu_count() + 1
         self.biomart_data = None
         self.merged_dataframe = None
         self.configure_data
+        self.species = species
+        self._symbol = symbol
         # here at a certain point more filters and attributes can be added
 
+    @property
+    def symbol(self):
+        return self._symbol
+    
     def configure_data(self):
         print(f"The Biomart Tool was configures with: Nr of Workers: {self.workers}")
         
@@ -43,7 +49,7 @@ class GeneBiomart():
             _type_: _description_
         """
         final_annotation_dataframe = pd.DataFrame()
-        new_list = self.chunk(self.chunked_list, 500)
+        new_list = self.chunk(self.chunked_list, 100)
         checked_list = self.progress_biomart(new_list)
         for i in checked_list:
             print(len(i["external_gene_name"]), len(
@@ -76,12 +82,19 @@ class GeneBiomart():
         Returns:
             _type_: _description_
         """
-        gene_dict = {"external_gene_name": [],
-                     "Gene_ID": [], "Transcript_ID": []}
+        
         chunked_list = list(chunked_list)
-        server = "http://rest.ensembl.org"
-        ext = "/lookup/id"
-        search_gene = '{ "ids" :' + " " + f"{json.dumps(chunked_list)}" + " }"
+        
+        if self.symbol:
+            server = "https://rest.ensembl.org"
+            ext = f"/lookup/symbol/{self.species}"
+            search_gene = '{ "symbols" :' + " " + f"{json.dumps(chunked_list)}" + " }"
+            print(search_gene)
+        else:
+            server = "http://rest.ensembl.org"
+            ext = "/lookup/id"
+            search_gene = '{ "ids" :' + " " + f"{json.dumps(chunked_list)}" + " }"
+            
         headers = {"Content-Type": "application/json",
                    "Accept": "application/json"}
         r = requests.post(server+ext, headers=headers, data=search_gene)
@@ -89,12 +102,49 @@ class GeneBiomart():
             r.raise_for_status()
             sys.exit()
         decoded = r.json()
+        if self.symbol:
+            return self.create_dict_from_decoding_symbol(decoded)
+        else:
+            return self.create_dict_from_decoding_ids(decoded)
+        
+    def create_dict_from_decoding_ids(self, decoded):
+        """_summary_
+
+        Args:
+            decoded (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        gene_dict = {"external_gene_name": [],
+                     "Gene_ID": [], "Transcript_ID": []}
         for keys in decoded:
             try:
                 gene_dict["external_gene_name"].append(
                     decoded[keys]["display_name"][:-4])
                 gene_dict["Gene_ID"].append(decoded[keys]["Parent"])
                 gene_dict["Transcript_ID"].append(decoded[keys]["id"])
+            except:
+                pass
+        return gene_dict
+
+    def create_dict_from_decoding_symbol(self, decoded):
+        """_summary_
+
+        Args:
+            decoded (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        gene_dict = {"external_gene_name": [],
+                     "Gene_ID": [], "Transcript_ID": []}
+        for keys in decoded:
+            try:
+                gene_dict["external_gene_name"].append(
+                    keys)
+                gene_dict["Gene_ID"].append(decoded[keys]["id"])
+                gene_dict["Transcript_ID"].append(decoded[keys]["canonical_transcript"])
             except:
                 pass
 

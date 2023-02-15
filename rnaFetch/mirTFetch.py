@@ -335,7 +335,11 @@ class mirTFetch(InitScrapper):
         gprofile = pd.DataFrame()
         for keys in nucleotides: 
             sub_pred = prediction_table[prediction_table["Query"] == keys]
-            gprofile_return = self.gp.profile(organism = str(species),query = sub_pred["Gene_ID"].astype(str).tolist())
+            
+            if sub_pred.empty:
+                print("No enrichments found here")
+            else:
+                gprofile_return = self.gp.profile(organism = str(species),query = sub_pred["Gene_ID"].astype(str).tolist())
             
             if gprofile_return.empty:
                 print(f"No enrichments found for {keys}")
@@ -358,7 +362,7 @@ class mirTFetch(InitScrapper):
         gprof_sliced = pd.DataFrame(gprof_sliced.groupby(level = 0)["log10p"].nlargest(10).reset_index(level = 0, drop = True)).reset_index()
         fig = px.treemap(gprof_sliced, path=["Query","source","name"], values='log10p')
         fig.update_layout(margin = dict(t=50, l=25, r=25, b=25))
-        fig.show()
+        return fig
 
     def clear_input(self):
         """_summary_
