@@ -1,7 +1,8 @@
 <h1> miRFetch Package to provide easy access to the DIANA microT and microCDS Webserver </h1>
 <p> This package allows to submit RNA sequences provided from tRNA fragments ect and determine the Target Spaces using Selenium WebScraping and
 Automatisation using an easy accessible API</p>
-<p> Data will be fetched from https://mrmicrot.imsi.athenarc.gr/?r=mrmicrot/index </p>
+<p> Data will be fetched from https://mrmicrot.imsi.athenarc.gr/?r=mrmicrot/index and from
+https://dianalab.e-ce.uth.gr/html/dianauniverse/index.php?r=microT_CDS</p>
 
 <h2> miRT Fetching Segment: </h2>
 
@@ -59,12 +60,12 @@ space overlaps between the queried RNA and miRNAs using Sankey Plots
 # This will connect to the microTCDS webpage via a Selenium Driver
 # 500 Genes per run will be supplied in chunks
 # Threshold can be set to a float between 0-1 and will be automatically set 
-fetchcds = microTCDS(final_table, threshold = 0.95)
-new_table = fetchcds.run_miRNA_analysis()
+fetchcds = microTCDS(final_table)
+new_table = fetchcds.run_miRNA_analysis(threshold = 0.95)
 overlap, grouped = fetchcds.get_mt_cds_overlap(final_table, new_table)
 ```
 
-
+<h2> A second Tutorial how to got directly from list having miRNA detections is shown in the Tutorial Folder </h2>
 
 
 
