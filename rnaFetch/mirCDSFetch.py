@@ -22,10 +22,18 @@ class microTCDS(InitScrapper):
     """_summary_
 
     Args:
-        InitScrapper (_type_): _description_
+        InitScrapper (rnaFetch.InitScrapper): Initializer of the Scraping Selenium Wrapper
     """
     
     def __init__(self, search_dataframe, threshold = 0.9,  browser = "Chrome", headless = True):
+        """_summary_
+
+        Args:
+            search_dataframe (pd.DataFrame/list/dict): DataFrame holding the miRNA names
+            threshold (float, optional): Threshold selecting when a miRNA interaction is considered. Defaults to 0.9. 
+            browser (str, optional): Browser to use for Scraping. Defaults to "Chrome".
+            headless (bool, optional): If Browser Window should be shown or not. Defaults to True.
+        """
         super().__init__(browser, headless)
         self.url = "https://dianalab.e-ce.uth.gr/html/dianauniverse/index.php?r=microT_CDS"
         self.driver.get(self.url)
@@ -35,12 +43,20 @@ class microTCDS(InitScrapper):
         self.data = None
         self.gprofiler = GProfiler(return_dataframe=True)
         
-    def get_genes(self, gene_list):
+    def get_genes(self, gene_list: list) -> str:
+        """_summary_: Retrieves the genes/mirnas as a string from a list
+
+        Args:
+            gene_list (list): _description_
+
+        Returns:
+            str: joined list as string
+        """
         search_gene = " ".join(gene_list)
         return search_gene
     
     
-    def get_threshold(self):
+    def get_threshold(self) -> float:
         """Getter Function of the setted threshold
 
         Returns:
@@ -51,7 +67,7 @@ class microTCDS(InitScrapper):
         return self._threshold
     
 
-    def set_threshold(self, threshold):
+    def set_threshold(self, threshold:float):
         """Set the threshold to a float between 0-1
 
         Args:
@@ -73,7 +89,7 @@ class microTCDS(InitScrapper):
         else:
             warnings.warn("Threshold can not selected before the Analysis! Analysis will be run at default 0.7 After the analysis you can change the threshold")
 
-    def insert_search(self, genes):
+    def insert_search(self, genes:str) -> bool:
         """Function to input the selected genes into the input box
 
         Args:
@@ -95,10 +111,11 @@ class microTCDS(InitScrapper):
                 raise ConnectionError("NO valid connection genes cannot be inserted into the Input Box")
     
     def remove_children(self):
-        """_summary_
+        """_summary_: Removes putative non detective miRNAs so that the Webside
+        can run further
 
         Returns:
-            _type_: _description_
+            bool: Retruns True if all child elements are removed
         """
         if len(self.driver.find_elements(By.CLASS_NAME, "suggestions")) > 0:
             print("We found suggestions by microCDS, please check manually")
@@ -114,8 +131,15 @@ class microTCDS(InitScrapper):
             return True
         
          
-    def run_miRNA_analysis(self, threshold = None):
-        """_summary_
+    def run_miRNA_analysis(self, threshold: float = None) -> pd.DataFrame:
+        """_summary_: runs the analysi by adding the miRNAs to the input
+        in the webside and starting the search as well as removing unidentified childs
+
+        Args:
+            threshold (float, optional): Cutoff to select interactions. Defaults to None.
+
+        Returns:
+            pd.DataFrame: The downloaded Prediction Table
         """
         prediction_table = pd.DataFrame()
         gene_list = self.chunk(self.searchable_dataframe["Gene_ID"].astype(str).unique().tolist(), 200)
@@ -132,7 +156,7 @@ class microTCDS(InitScrapper):
         return prediction_table
         
             
-    def check_progress(self):
+    def check_progress(self) -> bool:
         """Checks if the Job is still running or if all tables are already provided
 
          Returns:
@@ -151,7 +175,7 @@ class microTCDS(InitScrapper):
             print("All Data is queried successfully, Job completed")
             return True
             
-    def load_prediction_table(self):
+    def load_prediction_table(self) -> pd.Dataframe:
         """_summary_
 
         Args:
@@ -176,12 +200,12 @@ class microTCDS(InitScrapper):
         """_summary_
 
         Args:
-            microT_data (_type_): _description_
-            micro_CDS_data (_type_): _description_
+            microT_data (pd.DataFrame): Holding the Dataframe from microT 
+            micro_CDS_data (pd.DataFrame): Holding the Prediction Data from this class
             groupby (str, optional): _description_. Defaults to "Sequence".
 
         Returns:
-            _type_: _description_
+            tuple(pd.DataFrame, pd.DataFrame): Merged overlap between CDS and microT as well as the grouped table
         """
         merged_data = pd.merge(micro_CDS_data, microT_data, how = "left", right_on = "Gene_ID", left_on = "Gene_ID")
         grouped_table = pd.DataFrame(merged_data.groupby(["Query", "Mirna Name"])["Mirna Name"].count())
@@ -193,10 +217,11 @@ class microTCDS(InitScrapper):
         return merged_data, grouped_table
     
     def plot_sankey_mirna_overlap(self, sankey_dataframe):
-        """_summary_
+        """_summary_: Draws a Sankey plot with the interactions between tRNA searched
+        fragments and miRNAs
 
         Args:
-            sankey_dataframe (_type_): _description_
+            sankey_dataframe (plt.Figure): Figure of the Sankey Plot
         """
         fig, ax = plt.subplots(figsize = 8, 14)
         plot = sankey(left=sankey_dataframe['Query'],
@@ -209,6 +234,7 @@ class microTCDS(InitScrapper):
         return plot
         
     def get_gprofiles(self, data):
+        
         print("needs to be implemetned")
         
         

@@ -20,6 +20,8 @@ class GeneBiomart():
         # here at a certain point more filters and attributes can be added
 
     def configure_data(self):
+        """Identifies the number of workers retrieving the biomart from the api
+        """
         print(f"The Biomart Tool was configures with: Nr of Workers: {self.workers}")
         
     def chunk(self, it, size):
@@ -43,23 +45,21 @@ class GeneBiomart():
             _type_: _description_
         """
         final_annotation_dataframe = pd.DataFrame()
-        new_list = self.chunk(self.chunked_list, 500)
-        checked_list = self.progress_biomart(new_list)
-        for i in checked_list:
-            print(len(i["external_gene_name"]), len(
-                i["Gene_ID"]), len(i["Transcript_ID"]))
-            data = pd.DataFrame(i)
-            final_annotation_dataframe = pd.concat(
-                [final_annotation_dataframe, data], axis=0)
+        chunked_gene_list = self.chunk(self.gene_list, 500)
+        checked_list = self.progress_biomart(chunked_gene_list)
+
+        for result in checked_list:
+            data = pd.DataFrame(result)
+            final_annotation_dataframe = pd.concat([final_annotation_dataframe, data], axis=0)
         self.biomart_data = final_annotation_dataframe.copy()
         return final_annotation_dataframe
 
-    def progress_biomart(self, new_list):
+    def progress_biomart(self, new_list: list):
         """Runs the Worker Thread for each chunk and returns an iterator of the list
         results
 
         Args:
-            new_list (_type_): _description_
+            new_list (list): chunked list that is the input for the biomart retrieval
 
         Returns:
             _type_: _description_
@@ -67,8 +67,8 @@ class GeneBiomart():
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
             return executor.map(self.check_biomart, new_list, timeout=60)
 
-    def check_biomart(self, chunked_list):
-        """_summary_
+    def check_biomart(self, chunked_list:list):
+        """Retrieves the data from biomart either from symbol or from 
 
         Args:
             chunked_list (_type_): _description_
@@ -84,10 +84,14 @@ class GeneBiomart():
         search_gene = '{ "ids" :' + " " + f"{json.dumps(chunked_list)}" + " }"
         headers = {"Content-Type": "application/json",
                    "Accept": "application/json"}
-        r = requests.post(server+ext, headers=headers, data=search_gene)
-        if not r.ok:
+        
+        try:
+            r = requests.post(server+ext, headers=headers, data=search_gene)
             r.raise_for_status()
-            sys.exit()
+        except requests.exceptions.HTTPError as err:
+            print(err)
+            return gene_dict
+        
         decoded = r.json()
         for keys in decoded:
             try:

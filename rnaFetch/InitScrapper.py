@@ -4,7 +4,14 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class InitScrapper():
-    def __init__(self, browser, headless = True):
+    
+    def __init__(self, browser: str, headless: bool = True):
+        """_summary_
+
+        Args:
+            browser (str): The name of the browser you would like to use e.g. Chrome/Firefox/Edge
+            headless (bool, optional): If browser window should be shown or not. Defaults to True.
+        """
         self.browser = browser
         self.driver = None
         self.options = Options()
@@ -12,7 +19,6 @@ class InitScrapper():
         if headless:
             self.headless_state()
             
-
         if self.browser == "Chrome":
             self.chrome_init()
         elif self.browser == "Firefox":
