@@ -51,14 +51,6 @@ class GeneBiomart():
             _type_: _description_
         """
         final_annotation_dataframe = pd.DataFrame()
-<<<<<<< HEAD
-        chunked_gene_list = self.chunk(self.gene_list, 500)
-        checked_list = self.progress_biomart(chunked_gene_list)
-
-        for result in checked_list:
-            data = pd.DataFrame(result)
-            final_annotation_dataframe = pd.concat([final_annotation_dataframe, data], axis=0)
-=======
         new_list = self.chunk(self.chunked_list, 100)
         checked_list = self.progress_biomart(new_list)
         for i in checked_list:
@@ -67,7 +59,6 @@ class GeneBiomart():
             data = pd.DataFrame(i)
             final_annotation_dataframe = pd.concat(
                 [final_annotation_dataframe, data], axis=0)
->>>>>>> cb1144a793ed4c86001b0067776ac226667338eb
         self.biomart_data = final_annotation_dataframe.copy()
         return final_annotation_dataframe
 
