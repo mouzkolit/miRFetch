@@ -8,6 +8,7 @@ class InitScrapper():
         self.browser = browser
         self.driver = None
         self.options = Options()
+        self.headless = headless
         
         if headless:
             self.headless_state()
@@ -24,6 +25,7 @@ class InitScrapper():
         self.driver = webdriver.Chrome(ChromeDriverManager().install(), options = self.options)
 
     def firefox_init(self):
+        self.assertEqual
         self.driver = webdriver.Firefox()
 
     def edge_init(self):

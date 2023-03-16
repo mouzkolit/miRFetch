@@ -16,7 +16,8 @@ import logging
 from pySankey.sankey import sankey
 from gprofiler import GProfiler
 import matplotlib.pyplot as plt
-
+import types
+from collections.abc import Iterable
 
 class microTCDS(InitScrapper):
     """_summary_
@@ -25,7 +26,11 @@ class microTCDS(InitScrapper):
         InitScrapper (_type_): _description_
     """
     
-    def __init__(self, search_dataframe, threshold = 0.9,  browser = "Chrome", headless = True):
+    def __init__(self, 
+                 search_dataframe: pd.DataFrame,
+                 threshold: float = 0.9,
+                 browser: str = "Chrome",
+                 headless:bool = True):
         """_summary_
 
         Args:
@@ -43,9 +48,10 @@ class microTCDS(InitScrapper):
         self.analysis = None
         self.searchable_dataframe = search_dataframe
         if not isinstance(threshold, float):
-            raise ValueError("You provided the wrong data type as threshold")
+            raise ValueError("Please Provide a float as threshold")
         else:
             self._threshold = threshold
+
         self.data = None
         self.gprofiler = GProfiler(return_dataframe=True)
         
@@ -149,14 +155,17 @@ class microTCDS(InitScrapper):
             # This assumes a table that was provided by the biomart output and holds a column with the gene_ids
             gene_list = self.chunk(self.searchable_dataframe["Gene_ID"].astype(str).unique().tolist(), 200)
             
-        if isinstance(self.searchable_dataframe, list):
+        elif isinstance(self.searchable_dataframe, list):
             print("here we go")
             gene_list = {str(i) for i in self.searchable_dataframe}
             gene_list = self.chunk(gene_list, 200)
             
-        if isinstance(self.searchable_dataframe, dict):
+        elif isinstance(self.searchable_dataframe, dict):
             gene_list = {str(i) for i in self.searchable_dataframe[dictkey]}
-           
+
+        else:
+            raise TypeError("You should provide a list, dict or dataframe of genes")
+
         # going through the individual chunks 
         for i in gene_list:
             genes_search = self.get_genes(list(i))
@@ -214,6 +223,8 @@ class microTCDS(InitScrapper):
         
     def get_mt_cds_overlap(self, microT_data, micro_CDS_data, groupby = "Sequence", number = 3):
         """Get the overlap between miRNA target space and queried RNA searches
+        This function needs the run of the mirTFetch module first otherwise 
+        no overlap is possible!
 
         Args:
             microT_data (pd.DataFrame): Data received from the microT_data class
@@ -233,7 +244,7 @@ class microTCDS(InitScrapper):
         
         return merged_data, grouped_table
     
-    def plot_sankey_mirna_overlap(self, sankey_dataframe):
+    def plot_sankey_mirna_overlap(self, sankey_dataframe:pd.DataFrame):
         """Draw the Sankey Plot
 
         Args:
@@ -260,7 +271,7 @@ class microTCDS(InitScrapper):
         
         return fig
         
-    def get_gprofiles(self, data):
+    def get_gprofiles(self, data:pd.DataFrame):
         """_summary_
 
         Args:
@@ -269,7 +280,7 @@ class microTCDS(InitScrapper):
         print("needs to be implemetned")
         
         
-    def chunk(self, it, size):
+    def chunk(self, it:list, size:int):
         """List will be chunked into equal size for request Since request size is only 1000
 
         Args:
@@ -279,8 +290,13 @@ class microTCDS(InitScrapper):
         Returns:
             iter : iterable object for all chunks 
         """
-        it = iter(it)
-        return iter(lambda: tuple(islice(it, size)), ())
+
+        print(type(it))
+        if isinstance(it, Iterable):
+            it = iter(it)
+            return iter(lambda: tuple(islice(it, size)), ())
+        else:
+            raise TypeError("Please provide a list/generator as input")
         
 
     

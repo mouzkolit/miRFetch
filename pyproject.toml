@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "mirna-diana"
+version = "0.1.0"
+description = "A WebScraper to detect miRNA and mRNA interactions from DIANA Tools"
+authors = ["Max Zeidler <mouzkolit@outlook.de>"]
+readme = "README.md"
+packages = [{include = "rnaFetch"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+selenium = "^4.8.2"
+webdriver-manager = "^3.8.5"
+pandas = "^1.5.3"
+pySankey = "^0.0.1"
+gprofiler-official = "^1.0.0"
+matplotlib = "^3.7.1"
+plotly-express = "^0.4.1"
+numpy = "^1.24.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
