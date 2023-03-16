@@ -26,6 +26,8 @@ class GeneBiomart():
         return self._symbol
     
     def configure_data(self):
+        """Identifies the number of workers retrieving the biomart from the api
+        """
         print(f"The Biomart Tool was configures with: Nr of Workers: {self.workers}")
         
     def chunk(self, it, size):
@@ -60,12 +62,12 @@ class GeneBiomart():
         self.biomart_data = final_annotation_dataframe.copy()
         return final_annotation_dataframe
 
-    def progress_biomart(self, new_list):
+    def progress_biomart(self, new_list: list):
         """Runs the Worker Thread for each chunk and returns an iterator of the list
         results
 
         Args:
-            new_list (_type_): _description_
+            new_list (list): chunked list that is the input for the biomart retrieval
 
         Returns:
             _type_: _description_
@@ -73,8 +75,8 @@ class GeneBiomart():
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
             return executor.map(self.check_biomart, new_list, timeout=60)
 
-    def check_biomart(self, chunked_list):
-        """_summary_
+    def check_biomart(self, chunked_list:list):
+        """Retrieves the data from biomart either from symbol or from 
 
         Args:
             chunked_list (_type_): _description_
@@ -97,10 +99,14 @@ class GeneBiomart():
             
         headers = {"Content-Type": "application/json",
                    "Accept": "application/json"}
-        r = requests.post(server+ext, headers=headers, data=search_gene)
-        if not r.ok:
+        
+        try:
+            r = requests.post(server+ext, headers=headers, data=search_gene)
             r.raise_for_status()
-            sys.exit()
+        except requests.exceptions.HTTPError as err:
+            print(err)
+            return gene_dict
+        
         decoded = r.json()
         if self.symbol:
             return self.create_dict_from_decoding_symbol(decoded)

@@ -23,7 +23,7 @@ class microTCDS(InitScrapper):
     """_summary_
 
     Args:
-        InitScrapper (_type_): _description_
+        InitScrapper (rnaFetch.InitScrapper): Initializer of the Scraping Selenium Wrapper
     """
     
     def __init__(self, 
@@ -55,7 +55,15 @@ class microTCDS(InitScrapper):
         self.data = None
         self.gprofiler = GProfiler(return_dataframe=True)
         
-    def get_genes(self, gene_list):
+    def get_genes(self, gene_list: list) -> str:
+        """_summary_: Retrieves the genes/mirnas as a string from a list
+
+        Args:
+            gene_list (list): _description_
+
+        Returns:
+            str: joined list as string
+        """
         search_gene = " ".join(gene_list)
         return search_gene
     
@@ -93,7 +101,7 @@ class microTCDS(InitScrapper):
         else:
             warnings.warn("Threshold can not selected before the Analysis! Analysis will be run at default 0.7 After the analysis you can change the threshold")
 
-    def insert_search(self, genes):
+    def insert_search(self, genes:str) -> bool:
         """Function to input the selected genes into the input box
 
         Args:
@@ -115,10 +123,11 @@ class microTCDS(InitScrapper):
                 raise ConnectionError("NO valid connection genes cannot be inserted into the Input Box")
     
     def remove_children(self):
-        """Here we remove the not found genes using recursion
+        """_summary_: Removes putative non detective miRNAs so that the Webside
+        can run further
 
         Returns:
-            bool: True if alle children were removed
+            bool: Retruns True if all child elements are removed
         """
         if len(self.driver.find_elements(By.CLASS_NAME, "suggestions")) > 0:
             print("We found suggestions by microCDS, please check manually")
@@ -134,14 +143,15 @@ class microTCDS(InitScrapper):
             return True
         
          
-    def run_miRNA_analysis(self,threshold = 0.9, dictkey = "None"):
-        """Start the miRNA analysis using the threshold and the searchable dataframe
+    def run_miRNA_analysis(self, threshold: float = None) -> pd.DataFrame:
+        """_summary_: runs the analysi by adding the miRNAs to the input
+        in the webside and starting the search as well as removing unidentified childs
+
         Args:
-            threshold (float) <- threshold for the analysis between 0-1
-            dictkey (str) <- if input data is of type dict give the list with the genes by the key in the dict
-            
-        returns:
-            prediction_table(pd.DataFrame) <- DataFrame downloaded from microTCDS holding the predictions
+            threshold (float, optional): Cutoff to select interactions. Defaults to None.
+
+        Returns:
+            pd.DataFrame: The downloaded Prediction Table
         """
         prediction_table = pd.DataFrame()
      
@@ -180,7 +190,7 @@ class microTCDS(InitScrapper):
         return prediction_table
         
             
-    def check_progress(self):
+    def check_progress(self) -> bool:
         """Checks if the Job is still running or if all tables are already provided
 
          Returns:
@@ -227,13 +237,12 @@ class microTCDS(InitScrapper):
         no overlap is possible!
 
         Args:
-            microT_data (pd.DataFrame): Data received from the microT_data class
-            micro_CDS_data (pd.DataFrame): Data fetched from the queried genes
+            microT_data (pd.DataFrame): Holding the Dataframe from microT 
+            micro_CDS_data (pd.DataFrame): Holding the Prediction Data from this class
             groupby (str, optional): _description_. Defaults to "Sequence".
 
         Returns:
-            pd.DataFrame: merged_data is the whole merged table
-            pd.DataFrame: grouped_table is the table grouped by Query and Mirna Name
+            tuple(pd.DataFrame, pd.DataFrame): Merged overlap between CDS and microT as well as the grouped table
         """
         merged_data = pd.merge(micro_CDS_data, microT_data, how = "left", right_on = "Gene_ID", left_on = "Gene_ID")
         grouped_table = pd.DataFrame(merged_data.groupby(["Query", "Mirna Name"])["Mirna Name"].count())
@@ -248,9 +257,7 @@ class microTCDS(InitScrapper):
         """Draw the Sankey Plot
 
         Args:
-            sankey_dataframe (pd.DataFrame): Dataframe holding the data for the Sankey diagrom
-        returns:
-            fig (plt.Figure) <- holding the sankey plot
+            sankey_dataframe (plt.Figure): Figure of the Sankey Plot
         """
              
         sankey(left=sankey_dataframe['Query'],

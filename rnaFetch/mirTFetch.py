@@ -58,7 +58,7 @@ class mirTFetch(InitScrapper):
             self.logging.set_level(logging.ERROR)
     
             
-    def get_species_options(self):
+    def get_species_options(self) -> list:
         """Retrieve the Species that are availabe with the algorithm
 
         Returns:
@@ -74,10 +74,10 @@ class mirTFetch(InitScrapper):
 
 
     def select_species(self, species):
-        """_summary_
+        """Select the species in the microT mask for the analysis
 
         Args:
-            species (_type_): _description_
+            species (str): The species that should be queried for e.g hsapiens
         """
         selected_species = Select(self.driver.find_element(By.NAME, "species"))
         selected_species.select_by_visible_text(species)
@@ -85,7 +85,7 @@ class mirTFetch(InitScrapper):
         time.sleep(0.1)
 
     @property
-    def threshold(self):
+    def threshold(self) -> float:
         return self._threshold
 
     @threshold.setter
@@ -99,7 +99,7 @@ class mirTFetch(InitScrapper):
         self.logging.info(f"The current threshold is: {self._threshold}")
     
     @property
-    def prediction_data(self):
+    def prediction_data(self) -> pd.Dataframe:
         """Get prediction data from the analysis
 
         Returns:
@@ -112,7 +112,7 @@ class mirTFetch(InitScrapper):
             return self._prediction_data
 
     @prediction_data.setter
-    def prediction_data(self, data):
+    def prediction_data(self, data: pd.Dataframe):
         """Sets the prediction data into the slot
 
         Args:
@@ -120,16 +120,16 @@ class mirTFetch(InitScrapper):
         """
         self._prediction_data = data
 
-    def run_miRNA_analysis(self, nucleotide_dictionary):
+    def run_miRNA_analysis(self, nucleotide_dictionary: dict) -> pd.DataFrame:
         """The whole Analysis is performed by the mirT website
         Here the inputs to the websites will be mangaged and the
         state of the process defined
 
         Args:
-            nucleotide_dictionary (_type_): _description_
+            nucleotide_dictionary (dict): The dictionary holding the nucleotides per sequence to query
 
         Returns:
-            _type_: _description_
+            pd.DataFrame: Prediction obtained from microT
         """
         complete_table = pd.DataFrame()
         utr_full = pd.DataFrame() 
@@ -194,7 +194,7 @@ class mirTFetch(InitScrapper):
         
         return prediction_table
 
-    def insert_search(self, list_of_vales, keys):
+    def insert_search(self, list_of_vales: list, keys : list):
         """Here the Search Terms will be inserted into the Text_Area
         of the Homepage
 
@@ -221,17 +221,20 @@ class mirTFetch(InitScrapper):
         self.logging.info(f"Succesfully checked nucleotides for submission of key : {keys}")
         return True
 
-    def load_prediction_table(self, element_to_check):
+    def load_prediction_table(self, element_to_check:list):
         """_summary_
 
         Args:
-            element_to_check (_type_): _description_
+            element_to_check (list): _description_
 
         Returns:
             _type_: _description_
         """
         final_table = pd.DataFrame()
         utr_table_full = pd.DataFrame()
+        
+        # check for all search table the download buttons
+        # depends on the number of sequences as input
         for i in element_to_check:
             
             try:
@@ -252,12 +255,20 @@ class mirTFetch(InitScrapper):
         return (final_table, utr_table_full)
 
     def get_utrs(self, download_link):
+        """_summary_
+
+        Args:
+            download_link (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         data = pd.read_csv(download_link, header=None)
         list_of_utr_counts = []
         utr_count = None
         gene_list = []
         for i in data.iterrows():
-            if utr_count == None:
+            if utr_count is None:
                 utr_count = 0
                 current_gene = i[1][0].split("|")[1]
                 continue
@@ -304,7 +315,8 @@ class mirTFetch(InitScrapper):
             return True
 
     def check_nucleotides(self, nucleotides):
-        """_summary_
+        """Helper function to check if only ATCG nucleotides are in the query
+        Should be enhanced by lower and upper case
 
         Args:
             nucleotides (str): str of nucleotides
@@ -320,8 +332,8 @@ class mirTFetch(InitScrapper):
         """Function to retrieve gprofiling ontology results
 
         Args:
-            prediction_table (_type_): _description_
-            nucleotides (_type_): _description_
+            prediction_table (pd.DataFrame): _description_
+            nucleotides (dict): _description_
 
         Returns:
             _type_: _description_
@@ -351,10 +363,11 @@ class mirTFetch(InitScrapper):
 
 
     def get_treemap(self, gprofiler_data):
-        """_summary_
+        """Retrieves a treemap of putative enrichemnts from predicted genes retrieved
+        by  microT
 
         Args:
-            gprofiler_data (_type_): _description_
+            gprofiler_data (pd.DataFrame): Grpofiling Enrichments retrieved from get_gprofiles
         """
         gprofiler_data["log10p"] = gprofiler_data["p_value"].apply(lambda x: -(np.log10(x)))
         gprof_sliced = pd.DataFrame(gprofiler_data.groupby(["Query", "source", "name"])["log10p"].sum())
@@ -365,7 +378,7 @@ class mirTFetch(InitScrapper):
         return fig
 
     def clear_input(self):
-        """_summary_
+        """This clears the input areay
         """
         self.input_area.clear()
         self.logging.info("Cleared Input")
